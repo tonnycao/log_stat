@@ -14,11 +14,11 @@ from config.config import *
 
 
 def split_nginx_log(log_path):
-    '''
+    """
     分析ngixn访问日志
     :param log_path:日志文件
     :return: []
-    '''
+    """
 
     url_list = []
     fd = open(log_path, mode='r', encoding='utf-8')
