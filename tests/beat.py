@@ -2,6 +2,9 @@
 import os
 import time
 import queue
+from bin.worker import Worker
+from hander.hander_nginx import HanderNginx
+from multiprocessing import Pipe
 
 file_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + '/data/access.log'
 qname = 'file_queue'
@@ -73,4 +76,18 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    reader = []
+    parent_conn, child_conn = Pipe()
+
+    nginx_handler = HanderNginx(target)
+    p = Worker(2, file_path, nginx_handler, child_conn)
+    p.start()
+    reader.append(parent_conn)
+
+    while True:
+        for i in reader:
+            print(
+                i.recv()
+            )
+            if i.recv() == 0:
+                p.join(10)
