@@ -17,17 +17,38 @@ def init_data(queue_handle, path):
         'last_time': 0,
         'size': 0,
     }
-    queue_handle.put(qname, file_metadata)
+    queue_handle.put(file_metadata)
     return file_metadata
 
 
-def update_queue(queue_handler, inode, size):
-    item = queue_handler.get(qname)
-    print(item)
-    print('sss')
-    if item.inode == inode:
-        item.size += size
-        item.last_time = time.time()
+def update_queue_size(queue_handler, inode, size):
+    '''
+    更新传输大小
+    :param queue_handler:
+    :param inode:
+    :param size:
+    :return:
+    '''
+    item = queue_handler.get()
+    if item['inode'] == inode:
+        item['size'] += size
+        item['last_time'] = time.time()
+        queue_handler.put(item)
+
+
+def update_queue_counter(queue_handler, inode, step):
+    '''
+    更新停动次数
+    :param queue_handler:
+    :param inode:
+    :param step:
+    :return:
+    '''
+    item = queue_handler.get()
+
+    if item['inode'] == inode:
+        item['counter'] += step
+        item['last_time'] = time.time()
         queue_handler.put(item)
 
 
@@ -35,12 +56,14 @@ def read_file(queue_handler, path, target):
     inode = os.stat(path).st_ino
     with open(path, mode='r', encoding='utf-8') as fd:
         while True:
-            content = fd.readline(1)
+            content = fd.readline()
             str_len = len(content)
             if str_len > 0:
-                with open(target, mode='w+', encoding='utf-8') as fd2:
+                with open(target, mode='a+', encoding='utf-8') as fd2:
                     fd2.write(content+"\n")
-                    update_queue(queue_handler, inode, str_len)
+                    update_queue_size(queue_handler, inode, str_len)
+            else:
+                update_queue_counter(queue_handler, inode, 1)
             time.sleep(2)
 
 def main():
