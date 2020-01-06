@@ -17,13 +17,21 @@ class Worker(Process):
 
     def _init_data(self, path):
         inode = os.stat(path).st_ino
+        size = 0
+        try:
+            last_size = self.pip_conn.recv()
+            if last_size[2] > 0:
+                size = last_size[2]
+        except:
+            pass
+
         file_metadata = {
             'path': path,
             'inode': inode,
             'file_path': path,
             'counter': 0,
             'last_time': 0,
-            'size': 0,
+            'size': size,
         }
         self.queue_handler.put(file_metadata)
         self.file_metadata = file_metadata
@@ -34,17 +42,19 @@ class Worker(Process):
         inode = os.stat(path).st_ino
         with open(path, mode='r', encoding='utf-8') as fd:
             while True:
+                if fd.seekable():
+                    fd.seek(self.file_metadata['size'])
                 content = fd.readline()
                 str_len = len(content)
                 if str_len > 0:
                      self.handler.parse(content)
                      self._update_queue_size(inode, str_len)
-                     self.pip_conn.send(str_len)
+                     tup = (path, inode, str_len)
+                     self.pip_conn.send(tup)
                 else:
                     self._update_queue_counter(inode, 1)
                     if self.file_metadata['counter'] > self.close_interval:
-                        self.pip_conn.send(0)
-                        #break 通知Manage进程 让其定时 到一定时刻重新打开
+                        self.pip_conn.send((path, inode, 0))
                 time.sleep(self.interval)
 
     def _update_queue_size(self, inode, size):

@@ -2,14 +2,16 @@
 import os
 import time
 import queue
+from multiprocessing import Pipe
 from bin.worker import Worker
 from hander.hander_nginx import HanderNginx
-from multiprocessing import Pipe
+from hander.hander_c20 import HanderC20
+
 
 file_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + '/data/access.log'
 qname = 'file_queue'
 target = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + '/data/target.log'
-
+c20_path = ''
 
 def init_data(queue_handle, path):
     inode = os.stat(path).st_ino
@@ -77,11 +79,15 @@ def main():
 
 if __name__ == '__main__':
     reader = []
-    parent_conn, child_conn = Pipe()
 
+    parent_conn, child_conn = Pipe()
+    c20_handler = HanderC20(c20_path)
     nginx_handler = HanderNginx(target)
     p = Worker(2, file_path, nginx_handler, child_conn)
     p.start()
+    p2 = Worker(10, c20_path, c20_handler, child_conn)
+    p2.start()
+
     reader.append(parent_conn)
 
     while True:
